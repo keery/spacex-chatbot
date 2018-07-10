@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "botbuilder": "^3.14.1",
+    "dotenv": "^5.0.1",
+    "nodemon": "^1.17.3",
+    "restify": "^7.1.0",
+    "spacex-api-wrapper": "^1.0.1"
+  },
+  "name": "bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {},
+  "scripts": {
+    "start": "nodemon app.js"
+  },
+  "author": "",
+  "description": ""
+}
