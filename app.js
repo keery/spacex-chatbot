@@ -47,7 +47,7 @@ const menuItems = {
     'A propos de SpaceX' : { item : 'apropos' },
     'Dernier lancement' : { item : 'latest' },
     'Prochain lancement' : { item : 'option1' },
-    'Anciens lancements' : { item : 'option1' },
+    'Anciens lancements' : { item : 'pastlaunches' },
     'Lancement(s) à venir' : { item : 'option1' },
     'Tous les lancements' : { item : 'option1' }
 }
@@ -86,13 +86,30 @@ bot.dialog('getCompanyInfo', [
     },
 ]);
 
+bot.dialog('pastlaunches', [
+  function (session) {
+    SpaceX.getAllPastLaunches(null, function(err, info){
+      const launches = []
+      for(let launch in info) {
+        launches.push(buildLaunchHeroCard(info[launch], session));
+        break;
+      }
+
+      var msg = new builder.Message(session);
+      msg.attachmentLayout(builder.AttachmentLayout.carousel)
+      msg.attachments(launches);
+      session.send(msg).endDialog();
+    });
+  },
+]);
+
+
+
 bot.dialog('latest', [
     function (session) {
         session.sendTyping();
         SpaceX.getLatestLaunch(function (err, launch) {
-            console.log(launch)
             var adaptiveCardMessage = buildLaunchAdaptiveCard(launch, session);
-            // session.send(JSON.stringify(launch));
             session.send(adaptiveCardMessage);
         });
     },
@@ -263,4 +280,16 @@ function buildLaunchAdaptiveCard(launch, session) {
             }
         });
         return adaptiveCardMessage;
+}
+
+function buildLaunchHeroCard(launch, session) {
+  const herocard = new builder.HeroCard(session)
+            .title(launch.mission_name+" - flight n°"+launch.flight_number,)
+            .subtitle(launch.rocket.rocket_name)
+            .text(launch.details)
+            .images([builder.CardImage.create(session, launch.links.mission_patch)])
+            .buttons([
+                builder.CardAction.imBack(session, "apropos", "More details")
+            ])
+  return herocard
 }
