@@ -1,132 +1,266 @@
-// const SpaceXAPI = require('SpaceX-API-Wrapper');
-// const restify = require('restify');
-// const server = restify.createServer()
-// let SpaceX = new SpaceXAPI();
-// server.listen("3333", function () {
-//   console.warn('server started in port : 3333')
-// })
-// SpaceX.getCompanyInfo(function(err, info){
-//     console.log(info);
-// }); 
-//On récupère les constantes de notre fichier .env
+//import { ListStyle } from 'botbuilder';
+
 require('dotenv').config();
-const botBuilder = require('botbuilder');
+var builder = require('botbuilder');
+var restify = require('restify');
+
+// var spacexClient = require('./Services/spacex')
+// let spacex = new spacexClient();
 const SpaceXAPI = require('SpaceX-API-Wrapper');
-const restify = require('restify');
 let SpaceX = new SpaceXAPI();
-// var fetch = require("node-fetch");
-SpaceX.getLatestLaunch(function(err, info){
-  console.log(info);
 
-});
-// fetch(`http://127.0.0.1:8000/band/api/1/?format=json`)
-// .then(result=> {
-//   console.log(result.name)
-// })
-// SpaceX.getCompanyInfo(function(err, info){
-//   console.log(info);
-// });
+const port = 3333
 
-//On crée le serveur
 const server = restify.createServer()
-
-//On dit à notre serveur d'ecouter le port souhaité, process est une variable super globale qui stock plein d'informations sur les events et threads
-server.listen(process.env.PORT, function () {
-  console.warn('server started in port : ' + process.env.PORT)
+server.listen(port, function () {
+  console.warn('server started in port : ' + port)
 })
 
-//On crée une connexion au chat, on lui passe des identifiants de connexion mais ils ne sont pas obligatoire
-//Version avec identifiants
-// const connector = new botBuilder.ChatConnector({
-//   appId = process.env.MICROSOFT_APP_ID,
-//   appPassword = process.env.MICROSOFT_APP_PASSWORD
-// })
-//Version sans identifiant
-const connector = new botBuilder.ChatConnector()
+const connector = new builder.ChatConnector()
 server.post('/api/messages', connector.listen())
 
-//MemoryBotStorage permet de stocker les datas sur la mémoire vive de l'ordinateur
-const inMemoryStorage = new botBuilder.MemoryBotStorage();
+// var connector = new builder.ChatConnector({
+//     appId: process.env.MICROSOFT_APP_ID,
+//     appPassword: process.env.MICROSOFT_APP_PASSWORD
+// });
 
-//Notre Bot
-const bot = new botBuilder.UniversalBot(connector, [
-  //On demarre le dialog nommé menu
-  function (session) {
-    session.beginDialog('menu', session.userData.profile)
-  },
-  function (session, result) {
-    session.userData.profile = result.response;
-  }
+var inMemoryStorage = new builder.MemoryBotStorage();
+var bot = new builder.UniversalBot(connector, [
+    function (session) {
+        //Lancement du premier dialogue 'greetings'
+        session.send(`Hello, je suis le chatbot spaceX :)`);
+        session.beginDialog('menu', session.userData.profile);
+    }
 ]).set('storage', inMemoryStorage);
 
+bot.on('conversationUpdate', function (message) {
+    if (message.membersAdded) {
+        message.membersAdded.forEach(function (identity) {
+            if (identity.id === message.address.bot.id) {
+                bot.beginDialog(message.address, '/');
+            }
+        });
+    }
+});
 
-//Notre dialog qui s'appelle greetings
-bot.dialog('greetings', [
-
-  //Type choice
-  function (session, args, next) {
-    session.dialogData.profile = args || {};
-    //Sans option
-    // if(!session.dialogData.profile.name) botBuilder.Prompts.choice(session, 'Quelle est ta couleur préférée ?', ['Bleu', 'Blanc', "Vert"])
-    
-    //Avec option
-    if(!session.dialogData.profile.name) botBuilder.Prompts.choice(session, 'Quelle est ta couleur préférée ?', ['Bleu', 'Blanc', "Vert"], { listStyle: 3 })
-    //Next permet de sauter une etape, exemple si on a deja le prenom du user
-    else next();
-  },
-  //Type texte
-  // function (session, args, next) {
-  //   session.dialogData.profile = args || {};
-  //   if(!session.dialogData.profile.name) botBuilder.Prompts.text(session, 'What is your name ?')
-  //   else next();
-  // },
-  function (session, result) {
-    session.endDialogWithResult(result)
-  }
-])
-
-//Object contenant les parametres de notre prompt choice
 const menuItems = {
-  'A propos de SpaceX' : { item : 'apropos' },
-  'Dernier lancement' : { item : 'option1' },
-  'Prochain lancement' : { item : 'option1' },
-  'Anciens lancements' : { item : 'option1' },
-  'Lancement(s) à venir' : { item : 'option1' },
-  'Tous les lancements' : { item : 'option1' }
+    'A propos de SpaceX' : { item : 'apropos' },
+    'Dernier lancement' : { item : 'latest' },
+    'Prochain lancement' : { item : 'option1' },
+    'Anciens lancements' : { item : 'option1' },
+    'Lancement(s) à venir' : { item : 'option1' },
+    'Tous les lancements' : { item : 'option1' }
 }
 
-bot.dialog('apropos', function(session) {
-  SpaceX.getCompanyInfo(function(err, info){
-    let history = info.name+" a été créé en "+info.founded+" par "+info.founder+", l'entreprise compte à ce jour "+info.employees
-    history += ". Elle possède "+info.vehicles+" véhicules, "+info.launch_sites+" sites de lancements et "+info.test_sites+" site de test"
-    session.send(history);
-  });
-});
 
-bot.dialog('latest', function(session) {
-  SpaceX.getLatestLaunch(function(err, info){
-    let latest = "Numéro de vol : "+info.flight_number
-    latest += "Nom de la mission : "+info.mission_name
-    
-    console.log(info);
-      const adaptiveCard = buildLaunchAdaptiveCard()
-
-
-      new botBuilder.Message(session)
-  
-  });
-});
-
-//Exemple de dialog avec les paramètres via un tableau
 bot.dialog('menu', [
-  //Step 1, on choisit une option
-  function(session) {
-    botBuilder.Prompts.choice(session, "Sélectionner une option", menuItems, { listStyle: 3 });
-  },
-  //Step 2, on récupère le choix et on redirige vers le dialogue selectionné
-  function(session, result) {
-    const choice = result.response.entity;
-    session.beginDialog(menuItems[choice].item);
-    // botBuilder.Prompt.choice(session, "Choose an option from the list bellow", menuItems, { listStyle: 3 });
-  }
+    //step 1    
+    function (session) {
+        builder.Prompts.choice(session,
+            "Voilà ce que je peux faire pour toi",
+            menuItems,
+            { listStyle: 3 }
+        );
+    },
+    //step 2
+    function (session, results) {
+        var choice = results.response.entity;
+        session.beginDialog(menuItems[choice].item);
+    }
 ])
+
+bot.dialog('apropos', function(session) {
+    SpaceX.getCompanyInfo(function(err, info){
+      let history = info.name+" a été créé en "+info.founded+" par "+info.founder+", l'entreprise compte à ce jour "+info.employees+" employés"
+      history += ". Elle possède "+info.vehicles+" véhicules, "+info.launch_sites+" sites de lancements et "+info.test_sites+" site de test"
+      session.send(history);
+    });
+  });
+
+bot.dialog('getCompanyInfo', [
+    function (session) {
+        session.sendTyping();
+        SpaceX.getCompanyInfo(function (err, info) {
+            session.send(JSON.stringify(info));
+        });
+    },
+]);
+
+bot.dialog('latest', [
+    function (session) {
+        session.sendTyping();
+        SpaceX.getLatestLaunch(function (err, launch) {
+            console.log(launch)
+            var adaptiveCardMessage = buildLaunchAdaptiveCard(launch, session);
+            // session.send(JSON.stringify(launch));
+            session.send(adaptiveCardMessage);
+        });
+    },
+]);
+
+bot.dialog('successufulLaunches', [
+    function (session) {
+        session.sendTyping();
+        SpaceX.getAllLaunches({ launch_success: true }, function (err, launches) {
+            session.send(JSON.stringify(launches));
+        });
+    },
+]);
+
+function buildLaunchAdaptiveCard(launch, session) {
+    var adaptiveCardMessage = new builder.Message(session)
+        .addAttachment({
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: {
+                type: "AdaptiveCard",
+                body: [
+                    {
+                        "type": "Container",
+                        "items": [
+                            {
+                                "type": "TextBlock",
+                                "text": launch.mission_name+" - flight n°"+launch.flight_number,
+                                "weight": "bolder",
+                                "size": "medium"
+                            },
+                            {
+                                "type": "ColumnSet",
+                                "columns": [
+                                    {
+                                        "type": "Column",
+                                        "width": "auto",
+                                        "items": [
+                                            {
+                                                "type": "Image",
+                                                "url": launch.links.mission_patch_small,
+                                                "size": "small",
+                                                "style": "person"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "Column",
+                                        "width": "stretch",
+                                        "items": [
+                                            {
+                                                "type": "TextBlock",
+                                                "text": launch.rocket.rocket_name,
+                                                "weight": "bolder",
+                                                "wrap": true
+                                            },
+                                            {
+                                                "type": "TextBlock",
+                                                "spacing": "none",
+                                                "text": "Launched the "+launch.launch_year,
+                                                "isSubtle": true,
+                                                "wrap": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Container",
+                        "items": [
+                            {
+                                "type": "TextBlock",
+                                "text": "Launch informations",
+                                "size": "medium",
+                                "weight": "bolder",
+                                "wrap": true
+                            },
+                            {
+                                "type": "FactSet",
+                                "facts": [
+                                    {
+                                        "title": "Success:",
+                                        "value": (launch.launch_success ? "Yes" : "No")
+                                    },
+                                    {
+                                        "title": "Site:",
+                                        "value": launch.launch_site.site_name_long
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Container",
+                        "items": [
+                            {
+                                "type": "TextBlock",
+                                "text": "Reusable elements",
+                                "weight": "bolder",
+                                "size": "medium",
+                                "wrap": true
+                            },
+                            {
+                                "type": "FactSet",
+                                "facts": [
+                                    {
+                                        "title": "Core:",
+                                        "value": (launch.reuse.core ? "Yes" : "No")
+                                    },
+                                    {
+                                        "title": "Side core n°1:",
+                                        "value": (launch.reuse.side_core1 ? "Yes" : "No")
+                                    },
+                                    {
+                                        "title": "Side core n°2:",
+                                        "value": (launch.reuse.side_core2 ? "Yes" : "No")
+                                    },
+                                    {
+                                        "title": "Capsule:",
+                                        "value": (launch.reuse.capsule ? "Yes" : "No")
+                                    },
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Container",
+                        "items": [
+                            {
+                                "type": "TextBlock",
+                                "text": launch.details,
+                                "wrap": true
+                            }                           
+                        ]
+                    }
+                ],
+                "actions": [
+        
+                    {
+                        "type": "Action.OpenUrl",
+                        "title": "See launch",
+                        "url": launch.links.video_link
+                    }
+                    // ,
+                    // {
+                    //     "type": "Action.ShowCard",
+                    //     "title": "Comment",
+                    //     "card": {
+                    //         "type": "AdaptiveCard",
+                    //         "body": [
+                    //             {
+                    //                 "type": "Input.Text",
+                    //                 "id": "comment",
+                    //                 "isMultiline": true,
+                    //                 "placeholder": "Enter your comment"
+                    //             }
+                    //         ],
+                    //         "actions": [
+                    //             {
+                    //                 "type": "Action.Submit",
+                    //                 "title": "OK"
+                    //             }
+                    //         ]
+                    //     }
+                    // }
+                ]
+            }
+        });
+        return adaptiveCardMessage;
+}
