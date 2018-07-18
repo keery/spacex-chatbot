@@ -46,10 +46,9 @@ bot.on('conversationUpdate', function (message) {
 const menuItems = {
     'A propos de SpaceX' : { item : 'apropos' },
     'Dernier lancement' : { item : 'latest' },
-    'Prochain lancement' : { item : 'option1' },
     'Anciens lancements' : { item : 'pastlaunches' },
-    'Lancement(s) à venir' : { item : 'option1' },
-    'Tous les lancements' : { item : 'option1' }
+    'Lancement(s) à venir' : { item : 'upcoming' },
+    'Tous les lancements' : { item : 'all' }
 }
 
 
@@ -70,12 +69,12 @@ bot.dialog('menu', [
 ])
 
 bot.dialog('apropos', function(session) {
-    SpaceX.getCompanyInfo(function(err, info){
-      let history = info.name+" a été créé en "+info.founded+" par "+info.founder+", l'entreprise compte à ce jour "+info.employees+" employés"
-      history += ". Elle possède "+info.vehicles+" véhicules, "+info.launch_sites+" sites de lancements et "+info.test_sites+" site de test"
-      session.send(history);
-    });
+  SpaceX.getCompanyInfo(function(err, info){
+    let history = info.name+" a été créé en "+info.founded+" par "+info.founder+", l'entreprise compte à ce jour "+info.employees+" employés"
+    history += ". Elle possède "+info.vehicles+" véhicules, "+info.launch_sites+" sites de lancements et "+info.test_sites+" site de test"
+    session.send(history);
   });
+});
 
 bot.dialog('getCompanyInfo', [
     function (session) {
@@ -88,11 +87,11 @@ bot.dialog('getCompanyInfo', [
 
 bot.dialog('pastlaunches', [
   function (session) {
+    session.sendTyping();
     SpaceX.getAllPastLaunches(null, function(err, info){
       const launches = []
       for(let launch in info) {
         launches.push(buildLaunchHeroCard(info[launch], session));
-        break;
       }
 
       var msg = new builder.Message(session);
@@ -100,10 +99,42 @@ bot.dialog('pastlaunches', [
       msg.attachments(launches);
       session.send(msg).endDialog();
     });
-  },
+  }
 ]);
 
+bot.dialog('upcoming', [
+  function (session) {
+    session.sendTyping();
+    SpaceX.getAllUpcomingLaunches(null, function(err, info){
+      const launches = []
+      for(let launch in info) {
+        launches.push(buildLaunchHeroCard(info[launch], session));
+      }
 
+      var msg = new builder.Message(session);
+      msg.attachmentLayout(builder.AttachmentLayout.carousel)
+      msg.attachments(launches);
+      session.send(msg).endDialog();
+    });
+  }
+]);
+
+bot.dialog('all', [
+  function (session) {
+    session.sendTyping();
+    SpaceX.getAllLaunches(null, function(err, info){
+      const launches = []
+      for(let launch in info) {
+        launches.push(buildLaunchHeroCard(info[launch], session));
+      }
+
+      var msg = new builder.Message(session);
+      msg.attachmentLayout(builder.AttachmentLayout.carousel)
+      msg.attachments(launches);
+      session.send(msg).endDialog();
+    });
+  }
+]);
 
 bot.dialog('latest', [
     function (session) {
@@ -289,7 +320,9 @@ function buildLaunchHeroCard(launch, session) {
             .text(launch.details)
             .images([builder.CardImage.create(session, launch.links.mission_patch)])
             .buttons([
-                builder.CardAction.imBack(session, "apropos", "More details")
+              
+                builder.CardAction.dialogAction(session, "apropos", launch, "More details")
+                // builder.CardAction.imBack(session, "apropos", "More details")
             ])
   return herocard
 }
